@@ -185,7 +185,8 @@ Overall, the data showed that the supplement type (orange juice versus ascorbic 
 
 These conclusions are only valid under the following assumptions:  
 * Each of the groups are independent and data are _iid_,  
-* The sample is roughly normally distriXbuted, however, the histogram (Figure 1) shows that it is likely skewed, and  
+* The sample is roughly normally distributed, however, the histogram (Figure 1) shows that it is likely skewed, and   
 * The sample is representative of the population at hand, so that sample means and standard deviations are representative of population values.
 
+In addition, adjustments for multiple comparisons have not been made on these analyses, meaning that significant analyses may become non-significant after these adjustment are done.
 
