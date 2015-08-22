@@ -1,0 +1,191 @@
+---
+title: 'Statistical Inference Assignment Part 2: ToothGrowth analysis'
+output: html_document
+---
+
+## Loading the ToothGrowth data
+
+```{r}
+rm(list = ls())
+data(ToothGrowth)
+help(ToothGrowth)
+```
+
+The data was loaded with the above R code and information about the variables obtained using the 'help' function.
+
+## Basic exploratory analyses
+
+Information was obtained about the variables and their classes.
+```{r}
+str(ToothGrowth)
+```
+
+The 'dose' variable was converted into a factor variable as it will be used as a categorical variable.
+```{r}
+ToothGrowth$dose <- as.factor(ToothGrowth$dose)
+lapply(ToothGrowth[ , 2:3], levels)
+```
+
+The mean, sd, interquartile range, and range of the outcome 'len' was examined.
+```{r}
+summary(ToothGrowth$len)
+sd(ToothGrowth$len)
+```
+
+The distribution of the length variable was mapped using a histogram to see shape of the distribution, and assess whether it matches the shape of a t-distribution (Figure 1).
+
+```{r, echo = FALSE, fig.width = 6, fig.height = 4}
+library(ggplot2)
+g <- ggplot(data=ToothGrowth, aes(ToothGrowth$len)) + 
+        geom_histogram(aes(y = ..density..), binwidth = 1, 
+                       col = "#4797E5", 
+                       fill = "#7EC0EE") + 
+        xlab("Tooth length") + 
+        ylab("Density") + 
+        theme_bw() + 
+        ggtitle("Histogram of tooth length") + 
+        theme(plot.title = element_text(lineheight=.8, face="bold")) + 
+        geom_line(aes(y = ..density.., colour = "Empirical"), stat = "density") + 
+        stat_function(fun = dnorm, aes(colour = "Normal"), 
+                      arg = list(mean = mean(ToothGrowth$len), sd = sd(ToothGrowth$len))) + 
+        scale_colour_manual(name = "Density", values = c("black", "red"))
+
+print(g)
+```
+
+**Figure 1.** Histogram of tooth length (the 'len' variable), mapping the density of the distribution and the normal function.
+
+```{r, echo = FALSE}
+library(xtable); library(knitr)
+library(plyr)
+tgSummary1 <- ddply(ToothGrowth, c("supp"), summarise,
+                   n_subjects = length(len),
+                   mean_len = mean(len),
+                   se_len = sd(len) / sqrt(length(len))
+)
+
+levels(tgSummary1$supp) <- c("Orange juice", "Ascorbic acid")
+colnames(tgSummary1) <- c("Supplement", "N", "Mean", "SE")
+
+tgSummary2 <- ddply(ToothGrowth, c("dose"), summarise,
+                    n_subjects = length(len),
+                    mean_len = mean(len),
+                    se_len = sd(len) / sqrt(length(len))
+)
+
+levels(tgSummary2$dose) <- c("0.5 mg", "1 mg", "2 mg")
+colnames(tgSummary2) <- c("Dose", "N", "Mean", "SE")
+```
+
+By the 'supp' group, the sample size, and mean and SE for 'len' are summarised in Table 1.
+
+```{r, echo = FALSE}
+kable(tgSummary1, digits = c(3, 4))
+```
+
+**Table 1.** Summary of tooth length by supplement type.
+
+The above was repeated for the 'dose' variable (Table 2).
+
+```{r, echo = FALSE}
+kable(tgSummary2, digits = c(3, 4))
+```
+
+**Table 2.** Summary of tooth length by dose (in mgs).
+
+```{r, echo = FALSE}
+ci1 <- transform(tgSummary1, SE_lower = Mean - SE, SE_upper = Mean + SE)
+rm(tgSummary1)
+
+ci2 <- transform(tgSummary2, SE_lower = Mean - SE, SE_upper = Mean + SE)
+rm(tgSummary2)
+```
+
+Finally, a plot summarising the means and standard errors by both 'supp' and 'dose' was created (Figure 2).
+
+```{r, echo = FALSE, fig.width = 12, fig.height = 6}
+library(gridExtra)
+g1 <- ggplot(data=ci1, aes(x=Supplement, y=Mean, group=Supplement, colour=Supplement)) +
+        geom_bar(stat = "identity", fill="#4F87CC", colour="#4F87CC", alpha = 0.9) +
+        geom_errorbar(aes(ymax=SE_upper, ymin=SE_lower), 
+                      width=0.25, 
+                      color = "black",
+                      position=position_dodge(0.9), 
+                      data=ci1) +
+        ylab("Tooth length (mean)") +
+        theme_bw() +
+        ggtitle("Guinea Pig Tooth Growth by Supplement Type") + 
+        theme(plot.title = element_text(lineheight=1.1, face="bold")) +
+        theme(legend.position="none") +
+        scale_y_continuous(limits=c(0, 27))
+
+g2 <- ggplot(data=ci2, aes(x=Dose, y=Mean, group=Dose, colour=Dose)) +
+    geom_bar(stat = "identity", fill="#C0D890", colour="#C0D890") +
+    geom_errorbar(aes(ymax=SE_upper, ymin=SE_lower), 
+                  width=0.25, 
+                  color = "black",
+                  position=position_dodge(0.9), 
+                  data=ci2) +
+    ylab("Tooth length (mean)") +
+    theme_bw() +
+    ggtitle("Guinea Pig Tooth Growth by Dose") + 
+    theme(plot.title = element_text(lineheight=1.1, face="bold")) +
+    theme(legend.position="none") +
+    scale_y_continuous(limits=c(0, 27))
+
+grid.arrange(g1, g2, nrow = 1, ncol = 2)
+```
+
+**Figure 2.** Bar graph demonstrating the mean length and standard error for each of the levels of 'supp' and 'dose'.
+
+## Comparison of tooth length by supplement and dose
+### Tooth length by supplement
+
+The mean tooth length by supplement type (orange juice versus absorbic acid) was performed using an independent samples t-test. 
+
+```{r}
+s1 <- ToothGrowth$len[ToothGrowth$supp == "OJ"]
+s2 <- ToothGrowth$len[ToothGrowth$supp == "VC"]
+
+ttest1 <- t.test(s1, s2, alternative = "two.sided",
+            paired = FALSE, 
+            var.equal = FALSE)
+```
+
+The mean difference between the two groups was `r abs(mean(s1) - mean(s2))`. The 95% confidence interval around this estimate was [`r round(ttest1$conf, 3)`], which contains 0, therefore indicating that the mean tooth length between each supplement type was not significantly different. This was confirmed by the p-value, which was greater than 0.05 (`r round(ttest1$p.value, 3)`).
+
+### Tooth length by dose
+The mean tooth length by dose type was tested with two independent samples t-tests. The first, 0.5 mg versus 1 mg, is performed below:
+
+```{r}
+l1 <- ToothGrowth$len[ToothGrowth$dose == "0.5"]
+l2 <- ToothGrowth$len[ToothGrowth$dose == "1"]
+l3 <- ToothGrowth$len[ToothGrowth$dose == "2"]
+
+ttest2 <- t.test(l1, l2, alternative = "two.sided",
+            paired = FALSE, 
+            var.equal = FALSE)
+```
+
+The mean difference between the two groups was `r abs(mean(l1) - mean(l2))`. The 95% confidence interval around this estimate was [`r round(ttest2$conf, 3)`], which does not contain 0, therefore indicating that the mean tooth length between each supplement type was significantly different at this level. This was confirmed by the p-value, which was less than 0.05 (`r format(ttest2$p.value, scientific = FALSE, digits = 1)`).
+
+Finally, the levels 1 mg and 2 mg of dose were compared.
+
+```{r}
+ttest3 <- t.test(l2, l3, alternative = "two.sided",
+            paired = FALSE, 
+            var.equal = FALSE)
+```
+
+The mean difference between the two groups was `r abs(mean(l2) - mean(l3))`. The 95% confidence interval around this estimate was [`r round(ttest3$conf, 3)`], which does not contain 0, therefore indicating that the mean tooth length between each supplement type was significantly different at this level. This was confirmed by the p-value, which was less than 0.05 (`r format(ttest3$p.value, scientific = FALSE, digits = 1)`).
+
+## Conclusions and assumptions
+
+Overall, the data showed that the supplement type (orange juice versus ascorbic acid) did not affect the length of the guinea pig's teeth, as demonstrated by the non-significant independent samples t-test (at the 0.05 level). However, each of the dose levels of Vitamin C did. 1 mg caused a signficantly greater tooth length (`r abs(mean(l1) - mean(l2))`, 95% CI = [`r round(ttest2$conf, 3)`]) than 0.5 mg. In turn, 2 mg caused a signficantly greater tooth length (`r abs(mean(l2) - mean(l3))`, 95% CI = [`r round(ttest3$conf, 3)`]) than 1 mg.
+
+These conclusions are only valid under the following assumptions:  
+* Each of the groups are independent and data are _iid_,  
+* The sample is roughly normally distriXbuted, however, the histogram (Figure 1) shows that it is likely skewed, and  
+* The sample is representative of the population at hand, so that sample means and standard deviations are representative of population values.
+
+
